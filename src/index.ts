@@ -1,21 +1,20 @@
 import express from "express";
-import { Response, Request } from "express"
-import { middlewareLogResponses } from "./utils/middleware.js";
+import { middlewareLogResponses, middlewareMetricsInc } from "./utils/middleware.js";
+import { handleMetrics, handleResetMetrics, handlerReadiness, handleValidateChirp } from "./api/index.js";
 
 const app = express();
 const PORT = 8080;
 
-const handlerReadiness = async function (req: Request, resp: Response): Promise<void> {
-    resp.status(200);
-    resp.set("Content-Type", "text/plain; charset=utf-8");
-    resp.send("OK")
-}
-
 app.use(middlewareLogResponses);
 
-app.use("/app", express.static("./src/app"));
+app.use("/app", middlewareMetricsInc, express.static("./src/app"));
 
-app.get("/healthz", handlerReadiness);
+app.get("/admin/metrics", handleMetrics);
+app.post("/admin/reset", handleResetMetrics);
+
+app.post("/api/validate_chirp", handleValidateChirp);
+
+app.get("/api/healthz", handlerReadiness);
 
 app.listen(PORT, () => {
   console.log(`Server is running at http://localhost:${PORT}`);

@@ -13,27 +13,19 @@ export async function handleValidateChirp(req: Request, res: Response): Promise<
         body: string
     }
 
-    let body = "";
+    try {
+        const postBody: validateChirpData = req.body;
 
-    req.on("data", (chuk) => {
-        body += chuk;
-    })
-
-    req.on("end", () => {
-        try {
-            const postBody: validateChirpData = JSON.parse(body);
-
-            if (postBody?.body.length <= 140) {
-                const validResponse = {"valid": true};
-                res.status(200).send(JSON.stringify(validResponse));
-            } else {
-                const error = {"error": "Chirp is too long"};
-                res.status(400).send(JSON.stringify(error));
-            }
-        } catch (error) {
-            res.status(400).send("Something went wrong");
+        if (postBody?.body.length <= 140) {
+            const validResponse = {"valid": true};
+            res.status(200).send(JSON.stringify(validResponse));
+        } else {
+            const error = {"error": "Chirp is too long"};
+            res.status(400).send(JSON.stringify(error));
         }
-    })
+    } catch (error) {
+        res.status(400).send("Something went wrong");
+    }
 }
 
 export const handleMetrics = async function (req: Request, resp: Response): Promise<void> {

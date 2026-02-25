@@ -1,6 +1,7 @@
 import { NextFunction, Request, Response } from "express";
 import { config } from "../config.js";
 import { cleanChirp, validateChirp } from "../utils/helpers.js";
+import { BadRequestError } from "../utils/errors.js";
 
 
 export const handlerReadiness = async function (req: Request, res: Response): Promise<void> {
@@ -25,7 +26,7 @@ export async function handleValidateChirp(req: Request, res: Response, next: Nex
         } else {
             // const error = {"error": "Chirp is too long"};
             // res.status(400).send(JSON.stringify(error));
-            throw("Chirp is too long");
+            throw(new BadRequestError("Chirp is too long. Max length is 140"));
         }
     } catch (error) {
         next(error);

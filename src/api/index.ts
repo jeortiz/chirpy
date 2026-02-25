@@ -1,5 +1,6 @@
-import { Request, Response } from "express";
+import { NextFunction, Request, Response } from "express";
 import { config } from "../config.js";
+import { cleanChirp, validateChirp } from "../utils/helpers.js";
 
 
 export const handlerReadiness = async function (req: Request, res: Response): Promise<void> {
@@ -8,7 +9,7 @@ export const handlerReadiness = async function (req: Request, res: Response): Pr
   res.send("OK");
 };
 
-export async function handleValidateChirp(req: Request, res: Response): Promise<void> {
+export async function handleValidateChirp(req: Request, res: Response, next: NextFunction): Promise<void> {
     type validateChirpData = {
         body: string
     }
@@ -16,15 +17,18 @@ export async function handleValidateChirp(req: Request, res: Response): Promise<
     try {
         const postBody: validateChirpData = req.body;
 
-        if (postBody?.body.length <= 140) {
-            const validResponse = {"valid": true};
+        const isValid = validateChirp(postBody.body);
+
+        if (isValid) {
+            const validResponse = {"cleanedBody": cleanChirp(postBody.body)};
             res.status(200).send(JSON.stringify(validResponse));
         } else {
-            const error = {"error": "Chirp is too long"};
-            res.status(400).send(JSON.stringify(error));
+            // const error = {"error": "Chirp is too long"};
+            // res.status(400).send(JSON.stringify(error));
+            throw("Chirp is too long");
         }
     } catch (error) {
-        res.status(400).send("Something went wrong");
+        next(error);
     }
 }
 

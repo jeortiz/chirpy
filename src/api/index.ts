@@ -1,7 +1,9 @@
 import { NextFunction, Request, Response } from "express";
-import { config } from "../config.js";
+import { config, Platforms } from "../config.js";
 import { cleanChirp, validateChirp } from "../utils/helpers.js";
-import { BadRequestError } from "../utils/errors.js";
+import { BadRequestError, UnauthorizedError } from "../utils/errors.js";
+import { createUser, deleteAllUsers } from "../db/queries/users.js";
+import { createChirp } from "../db/queries/chirps.js";
 
 
 export const handlerReadiness = async function (req: Request, res: Response): Promise<void> {
@@ -10,27 +12,30 @@ export const handlerReadiness = async function (req: Request, res: Response): Pr
   res.send("OK");
 };
 
-export async function handleValidateChirp(req: Request, res: Response, next: NextFunction): Promise<void> {
-    type validateChirpData = {
+export async function handlePostChirp(req: Request, res: Response, next: NextFunction): Promise<void> {
+    type chirpData = {
         body: string
+        userId: string
+    }
+    
+    if ((req.body as chirpData).userId === undefined) {
+        throw new BadRequestError();
     }
 
-    try {
-        const postBody: validateChirpData = req.body;
+    const postBody: chirpData = req.body;
 
-        const isValid = validateChirp(postBody.body);
+    const isValid = validateChirp(postBody.body);
 
-        if (isValid) {
-            const validResponse = {"cleanedBody": cleanChirp(postBody.body)};
-            res.status(200).send(JSON.stringify(validResponse));
-        } else {
-            // const error = {"error": "Chirp is too long"};
-            // res.status(400).send(JSON.stringify(error));
-            throw(new BadRequestError("Chirp is too long. Max length is 140"));
-        }
-    } catch (error) {
-        next(error);
+    if (isValid) {
+        const newChirp = await createChirp(postBody);
+
+        newChirp.body = cleanChirp(newChirp.body);
+        res.status(201)
+            .send(JSON.stringify(newChirp));
+    } else {
+        throw(new BadRequestError("Chirp is too long. Max length is 140"));
     }
+    
 }
 
 export const handleMetrics = async function (req: Request, resp: Response): Promise<void> {
@@ -50,10 +55,29 @@ export const handleMetrics = async function (req: Request, resp: Response): Prom
 };
 
 export const handleResetMetrics = async function (req: Request, resp: Response): Promise<void> {
-  resp.status(200);
-  resp.set("Content-Type", "text/plain; charset=utf-8");
 
-  config.fileServerHits = 0;
+    if (config.platform !== Platforms.DEV) {
+        throw new UnauthorizedError();
+    }
 
-  resp.send("OK");
+    resp.status(200);
+    resp.set("Content-Type", "text/plain; charset=utf-8");
+
+    config.fileServerHits = 0;
+
+    deleteAllUsers();
+
+    resp.send("OK");
 };
+
+export async function handlePostUsers(req: Request, resp: Response): Promise<void> {
+    if (!req.body.email) {
+        throw new BadRequestError("User email not provided");
+    }
+
+    const newUser = await createUser({email: req.body.email});
+
+    resp.status(201)
+        .set("Content-Type", "application/json; charset=utf-8")
+        .send(JSON.stringify(newUser));
+}

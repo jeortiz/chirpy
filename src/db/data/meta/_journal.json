@@ -8,6 +8,13 @@
       "when": 1772229197022,
       "tag": "0000_gifted_talon",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1772389149166,
+      "tag": "0001_strong_anita_blake",
+      "breakpoints": true
     }
   ]
 }

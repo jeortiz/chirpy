@@ -4,7 +4,7 @@ import { cleanChirp, validateChirp } from "../utils/helpers.js";
 import { BadRequestError, NotFoundError, UnauthorizedError } from "../utils/errors.js";
 import { createUser, deleteAllUsers, getUserBy } from "../db/queries/users.js";
 import { createChirp, getAllChirps, getChirp } from "../db/queries/chirps.js";
-import { checkPasswordHash, hashPassword } from "../auth.js";
+import { checkPasswordHash, getBearerToken, hashPassword, makeJWT, validateJWT } from "../auth.js";
 import { NewUser } from "src/db/schema.js";
 
 
@@ -19,17 +19,17 @@ export async function handlePostChirp(req: Request, res: Response, next: NextFun
         body: string
         userId: string
     }
-    
-    if ((req.body as chirpData).userId === undefined) {
-        throw new BadRequestError();
-    }
 
-    const postBody: chirpData = req.body;
+    const token = getBearerToken(req);
 
-    const isValid = validateChirp(postBody.body);
+    const userId = validateJWT(token, config.jwtSecret)
+
+    const chirp: chirpData = { body: req.body.body, userId: userId}
+
+    const isValid = validateChirp(chirp.body);
 
     if (isValid) {
-        const newChirp = await createChirp(postBody);
+        const newChirp = await createChirp(chirp);
 
         newChirp.body = cleanChirp(newChirp.body);
         res.status(201)
@@ -116,7 +116,7 @@ export async function handlePostUsers(req: Request, resp: Response): Promise<voi
 
 export async function handleLogin(req: Request, resp: Response): Promise<void> {
 
-    type UserResponse = Omit<NewUser, "hashedPassword">;
+    type UserResponse = Omit<NewUser, "hashedPassword"> & {token: string;};
 
     if (!req.body.email) {
         throw new BadRequestError("User email not provided");
@@ -133,11 +133,15 @@ export async function handleLogin(req: Request, resp: Response): Promise<void> {
 
     if (await checkPasswordHash(req.body.password, userData.hashedPassword)) {
 
+        const expiresIn = req.body.expiresInSeconds ?? 3600;
+        const token = makeJWT(userData.id as string, expiresIn, config.jwtSecret);
+
         const userResponse: UserResponse = {
             email: userData.email,
             id: userData.id,
             createdAt: userData.createdAt,
             updatedAt: userData.updatedAt,
+            token: token,
         }
 
         resp.status(200)

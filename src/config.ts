@@ -17,6 +17,7 @@ type DBConfig = {
 type APIConfig = {
     fileServerHits: number
     platform: string
+    jwtSecret: string
     db: DBConfig
 }
 
@@ -25,6 +26,7 @@ process.loadEnvFile(".env");
 export const config: APIConfig = { 
     fileServerHits: 0,
     platform: envOrThrow("PLATFORM"),
+    jwtSecret: envOrThrow("JWT_SECRET"),
     db: {
         migrationConfig,
         connectionString: envOrThrow("DB_URL"),

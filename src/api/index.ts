@@ -2,9 +2,9 @@ import { NextFunction, Request, Response } from "express";
 import { config, Platforms } from "../config.js";
 import { cleanChirp, validateChirp } from "../utils/helpers.js";
 import { BadRequestError, NotFoundError, UnauthorizedError } from "../utils/errors.js";
-import { createUser, deleteAllUsers, getUserBy } from "../db/queries/users.js";
+import { createUser, deleteAllUsers, getUserBy, updateUser } from "../db/queries/users.js";
 import { createChirp, getAllChirps, getChirp } from "../db/queries/chirps.js";
-import { checkPasswordHash, getBearerToken, hashPassword, makeJWT, validateJWT } from "../auth.js";
+import { checkPasswordHash, getBearerToken, hashPassword, makeJWT, makeRefreshToken, refreshToken, revokeToken, validateJWT } from "../auth.js";
 import { NewUser } from "src/db/schema.js";
 
 
@@ -114,9 +114,31 @@ export async function handlePostUsers(req: Request, resp: Response): Promise<voi
         .send(JSON.stringify(newUser));
 }
 
+export async function handlePutUsers(req: Request, resp: Response): Promise<void> {
+
+    const token = getBearerToken(req);
+
+    const userId = validateJWT(token, config.jwtSecret)
+
+    if (!req.body.email) {
+        throw new BadRequestError("User email not provided");
+    }
+    if (!req.body.password) {
+        throw new BadRequestError("User password not provided");
+    }
+
+    const hashedPassword = await hashPassword(req.body.password);
+
+    const newUser = await updateUser(userId, req.body.email, hashedPassword);
+
+    resp.status(200)
+        .set("Content-Type", "application/json; charset=utf-8")
+        .send(JSON.stringify(newUser));
+}
+
 export async function handleLogin(req: Request, resp: Response): Promise<void> {
 
-    type UserResponse = Omit<NewUser, "hashedPassword"> & {token: string;};
+    type UserResponse = Omit<NewUser, "hashedPassword"> & {token: string; refreshToken: string};
 
     if (!req.body.email) {
         throw new BadRequestError("User email not provided");
@@ -132,16 +154,17 @@ export async function handleLogin(req: Request, resp: Response): Promise<void> {
     }
 
     if (await checkPasswordHash(req.body.password, userData.hashedPassword)) {
-
-        const expiresIn = req.body.expiresInSeconds ?? 3600;
-        const token = makeJWT(userData.id as string, expiresIn, config.jwtSecret);
+        const userId = userData.id as string;
+        const token = makeJWT(userId, 3600, config.jwtSecret);
+        const refreshToken = await makeRefreshToken(userId);
 
         const userResponse: UserResponse = {
             email: userData.email,
             id: userData.id,
             createdAt: userData.createdAt,
             updatedAt: userData.updatedAt,
-            token: token,
+            token,
+            refreshToken,
         }
 
         resp.status(200)
@@ -150,4 +173,25 @@ export async function handleLogin(req: Request, resp: Response): Promise<void> {
     } else {
         throw new UnauthorizedError("incorrect email or password");
     }
+}
+
+export async function handleRefreshToken(req: Request, resp: Response): Promise<void> {
+    const token = getBearerToken(req);
+
+    const accessToken = await refreshToken(token);
+
+    resp.status(200)
+        .set("Content-Type", "application/json; charset=utf-8")
+        .send(JSON.stringify({token: accessToken}));
+
+    return;
+}
+
+export async function handleRevokeToken(req: Request, resp: Response): Promise<void> {
+    const token = getBearerToken(req);
+
+    await revokeToken(token);
+
+    resp.status(204).send();
+    return;
 }

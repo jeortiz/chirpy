@@ -1,6 +1,6 @@
 import express, { NextFunction, Request, Response } from "express";
 import { errorHandler, middlewareLogResponses, middlewareMetricsInc } from "./utils/middleware.js";
-import { handleMetrics, handlePostUsers, handleResetMetrics, handlerReadiness, handlePostChirp, handleGetAllChirps, handleGetChirp, handleLogin } from "./api/index.js";
+import { handleMetrics, handlePostUsers, handleResetMetrics, handlerReadiness, handlePostChirp, handleGetAllChirps, handleGetChirp, handleLogin, handleRefreshToken, handleRevokeToken, handlePutUsers } from "./api/index.js";
 import postgres from "postgres";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { drizzle } from "drizzle-orm/postgres-js";
@@ -46,9 +46,18 @@ app.get("/api/healthz", (req, res, next) => {
 app.post("/api/users", (req, res, next) => {
   Promise.resolve(handlePostUsers(req, res)).catch(next);
 });
+app.put("/api/users", (req, res, next) => {
+  Promise.resolve(handlePutUsers(req, res)).catch(next);
+});
 
 app.post("/api/login", (req, res, next) => {
   Promise.resolve(handleLogin(req, res)).catch(next);
+});
+app.post("/api/refresh", (req, res, next) => {
+  Promise.resolve(handleRefreshToken(req, res)).catch(next);
+});
+app.post("/api/revoke", (req, res, next) => {
+  Promise.resolve(handleRevokeToken(req, res)).catch(next);
 });
 
 app.use(errorHandler);

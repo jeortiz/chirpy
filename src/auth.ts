@@ -3,6 +3,12 @@ import jwt from "jsonwebtoken";
 import type { JwtPayload } from "jsonwebtoken";
 import { CustomError, UnauthorizedError } from "./utils/errors.js";
 import { Request } from "express";
+import { randomBytes } from "node:crypto";
+import { db } from "./db/index.js";
+import { refreshToken, refreshTokens } from "./db/schema.js";
+import { eq } from "drizzle-orm";
+import { config } from "./config.js";
+
 
 type payload = Pick<JwtPayload, "iss" | "sub" | "iat" | "exp">;
 
@@ -53,4 +59,53 @@ export function getBearerToken(req: Request): string {
     }
 
     return bearer.split(' ')[1]; 
+}
+
+export async function makeRefreshToken(userId: string): Promise<string> {
+    const token = randomBytes(256).toString('hex');
+    const timestamp = Date.now() + (3600*24*30);
+
+    const [result] = await db
+        .insert(refreshTokens)
+        .values({
+            token, userId, expiresAt: new Date(timestamp)
+        })
+        .onConflictDoNothing()
+        .returning();
+
+    return result.token;
+}
+
+export async function refreshToken(token: string): Promise<string> {
+    const [result] = await db
+        .select()
+        .from(refreshTokens)
+        .where(eq(refreshTokens.token, token));
+    
+    if (!result || result.revokedAt !== null) {
+        throw new UnauthorizedError()
+    }
+
+    const expiryDate = result.expiresAt.getDate();
+    if (expiryDate >= Date.now()) {
+        throw new UnauthorizedError("Token has expired.")
+    }
+
+    const refreshedToken = makeJWT(result.userId, 3600*60, config.jwtSecret);
+    
+    return refreshedToken;
+}
+
+export async function revokeToken(token: string): Promise<void> {
+    const [result] = await db
+        .update(refreshTokens)
+        .set({revokedAt: new Date()})
+        .where(eq(refreshTokens.token, token))
+        .returning();
+    
+    if (!result) {
+        throw new UnauthorizedError()
+    }
+
+    return;
 }

@@ -1,9 +1,9 @@
 import { NextFunction, Request, Response } from "express";
 import { config, Platforms } from "../config.js";
 import { cleanChirp, validateChirp } from "../utils/helpers.js";
-import { BadRequestError, NotFoundError, UnauthorizedError } from "../utils/errors.js";
+import { BadRequestError, ForbiddenError, NotFoundError, UnauthorizedError } from "../utils/errors.js";
 import { createUser, deleteAllUsers, getUserBy, updateUser } from "../db/queries/users.js";
-import { createChirp, getAllChirps, getChirp } from "../db/queries/chirps.js";
+import { createChirp, deleteChirp, getAllChirps, getChirp } from "../db/queries/chirps.js";
 import { checkPasswordHash, getBearerToken, hashPassword, makeJWT, makeRefreshToken, refreshToken, revokeToken, validateJWT } from "../auth.js";
 import { NewUser } from "src/db/schema.js";
 
@@ -63,6 +63,38 @@ export async function handleGetChirp(req: Request, resp: Response, next: NextFun
     resp.status(200);
     resp.send(JSON.stringify(result));
     
+}
+
+export async function handleDeleteChirp(req: Request, resp: Response, next: NextFunction): Promise<void> {
+    
+    const token = getBearerToken(req);
+    const userId = validateJWT(token, config.jwtSecret)
+
+    if (!req.params.chirpId) {
+        throw new Error();
+    }
+
+    const chirp = await getChirp(req.params.chirpId as string);
+
+    if (!chirp?.id) {
+        throw new NotFoundError();
+    }
+
+    if (chirp?.userId !== userId) {
+        throw new ForbiddenError();
+    }
+
+    console.log("we here", chirp.id);
+    const deleted = await deleteChirp(chirp.id);
+    console.log("y auiq?", deleted);
+
+    if (deleted) {
+        resp.status(204);
+        resp.send("OK");
+        return
+    }
+
+    throw new Error();
 }
 
 export const handleMetrics = async function (req: Request, resp: Response): Promise<void> {

@@ -1,9 +1,11 @@
+import { boolean } from "drizzle-orm/gel-core";
 import { pgTable, timestamp, varchar, uuid } from "drizzle-orm/pg-core";
 
 export const users = pgTable("users", {
   id: uuid("id").primaryKey().defaultRandom(),
   hashedPassword: varchar("hashed_password").notNull().default("unset"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
+  isChirpyRed: boolean("is_chirpy_red").notNull().default(false),
   updatedAt: timestamp("updated_at")
     .notNull()
     .defaultNow()

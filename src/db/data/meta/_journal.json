@@ -29,6 +29,13 @@
       "when": 1774210917134,
       "tag": "0003_yielding_captain_britain",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1777769471733,
+      "tag": "0004_fine_alex_power",
+      "breakpoints": true
     }
   ]
 }

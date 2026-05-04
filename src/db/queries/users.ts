@@ -35,3 +35,15 @@ export async function updateUser(userId: string, email: string, password: string
   console.log(user);
   return user;
 }
+
+export async function upgrateUserToRed(userId: string): Promise<PublicUser> {
+  const [result] = await db
+    .update(users)
+    .set({isChirpyRed: true})
+    .where(eq(users.id, userId))
+    .returning();
+    
+  const user = result as PublicUser;
+  console.log(user);
+  return user;
+}

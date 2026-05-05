@@ -2,7 +2,7 @@ import { NextFunction, Request, Response } from "express";
 import { config, Platforms } from "../config.js";
 import { cleanChirp, validateChirp } from "../utils/helpers.js";
 import { BadRequestError, ForbiddenError, NotFoundError, UnauthorizedError } from "../utils/errors.js";
-import { createUser, deleteAllUsers, getUserBy, updateUser } from "../db/queries/users.js";
+import { createUser, deleteAllUsers, getUserBy, updateUser, upgrateUserToRed } from "../db/queries/users.js";
 import { createChirp, deleteChirp, getAllChirps, getChirp } from "../db/queries/chirps.js";
 import { checkPasswordHash, getBearerToken, hashPassword, makeJWT, makeRefreshToken, refreshToken, revokeToken, validateJWT } from "../auth.js";
 import { NewUser } from "src/db/schema.js";
@@ -225,5 +225,34 @@ export async function handleRevokeToken(req: Request, resp: Response): Promise<v
     await revokeToken(token);
 
     resp.status(204).send();
+    return;
+}
+
+export async function handlePolkaPayment(req: Request, resp: Response): Promise<void> {
+    type PolkaData = {
+        event: string,
+        data: {
+            userId: string
+        }
+    }
+    const notification: PolkaData = req.body ;
+
+    if (!notification.event || !notification?.data?.userId) {
+        throw new BadRequestError();
+    }
+
+    if (notification.event !== "user.upgraded") {
+        resp.status(204).send();
+        return;
+    }
+
+    const updatedUser = upgrateUserToRed(notification.data.userId)
+
+    if (!updateUser) {
+        resp.status(404).send();
+    } else {
+        resp.status(204).send();
+    }
+
     return;
 }
